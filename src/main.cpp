@@ -4,12 +4,32 @@
 #include <Adafruit_NeoPixel.h>
 #include <Servo.h>
 
-#define LED_DATA    D10 // LED data out pin
-#define NUMPIXELS   240 // 60 LED/meter 4 metre strip
-#define DELAY       0 // 10ms delay
+/*
+    PINS
+*/
 
-#define SERVO_PIN   D7 // servo pin
-#define SERVO_SMOOTHING 0.0001 // smoothing value for servo, smaller = smoother
+#define HALL        2           // pin for hall sensor (A0)
+#define SERVO_PIN   D7          // servo pin
+#define LED_DATA    D10         // LED data out pin
+
+
+/*
+    LEDs
+*/
+
+#define NUMPIXELS           240          // 60 LED/meter 4 metre strip
+#define DELAY               0           // 10ms delay
+#define LED_BOUNCE_SPEED    3           // controls speed of LEDBounce()
+Adafruit_NeoPixel strip(NUMPIXELS, LED_DATA, NEO_GRB + NEO_KHZ800);
+int brightness = 0;
+int add = 1;
+// Enztec purple 215, 0, 118
+
+/*
+    SERVO
+*/
+
+#define SERVO_SMOOTHING 0.0001  // smoothing value for servo, smaller = smoother
 Servo servo = Servo();
 float servoTarget = 0;
 float servoPrevious = 0;
@@ -31,8 +51,6 @@ float servoSmoothed = 0;
 #define FRAMES_PER_STAGE (MAX_FRAMES / NUM_STAGES)
 // frame time in microseconds
 #define FRAME_TIME_US ((1000 * 1000) / FRAMES_PER_SECOND)
-// pin for hall sensor
-#define HALL 2
 // ADC level for magnet detection
 #define HALL_THRESHOLD 2900
 // maxmimum pacer value for hall sensor analogRead
@@ -69,7 +87,8 @@ void runLever(long frame);
 void runNoseLighting(long frame);
 void runLeverLighting(long frame);
 float servoLinear(long frame, long startFrame, long endFrame, long startPos, long endPos);
-
+void initialiseLEDs();
+void LEDBounce();
 /*
         FILTERING
 */
@@ -85,9 +104,19 @@ long averaged = 0;
 void setup() {
     // put your setup code here, to run once:
     pinMode(HALL, INPUT_PULLDOWN);
-    Serial.begin(460800);
+
+    // initialise servo
     pinMode(SERVO_PIN, OUTPUT);
     servo.write(SERVO_PIN, 0);
+
+    // initialse LEDs
+    pinMode(LED_DATA, OUTPUT);
+    strip.begin();
+
+    // initialiseLEDs();
+
+    // initialise serial
+    Serial.begin(460800);
 }
 
 void loop() {
@@ -97,10 +126,7 @@ void loop() {
             frame++;
             frameStartTime = micros();
         }
-        if (frame > prevFrame) {
-            Serial.println(frame);
-            prevFrame = frame;
-        }
+        
     } else {
         static int pacer = 0; 
         if (pacer++ >= HALL_PACER_MAX) {
@@ -136,12 +162,18 @@ void loop() {
     }
 
     /* ANIMATION */
-    // if (frame > prevFrame) { // only update animation on new frames
-    //     Serial.println("new frame, updating animation");
+    if (frame > prevFrame) { // only update animation on new frames
+        Serial.println("new frame, updating animation");
         runLever(frame);
-    // runNoseLighting(frame);
+        runNoseLighting(frame);
     // runLeverLighting(frame);
-    // }
+    }
+
+    // THIS MUST REMAIN AT THE END OF THE MAIN LOOP
+    if (frame > prevFrame) {
+            Serial.println(frame);
+            prevFrame = frame;
+    }
 }
 
 void runLever(long frame) {
@@ -194,6 +226,50 @@ void runLever(long frame) {
         servoSmoothed = 0;
         servoPrevious = 0;
     }
+}
+
+void runNoseLighting(long frame) {
+    // if (frame > prevFrame) { // only update strip on new frames
+        // strip.clear();
+
+        // for (int i = 0; i<NUMPIXELS; i++) {
+        //     strip.setPixelColor(i, strip.Color(215,0,118));
+
+        //     // strip.show();
+        // }
+        // strip.setBrightness(frame % 255);
+        // strip.show();
+    // }
+    if (frame < STAGE_10_END) {
+        LEDBounce();
+    } else {
+        strip.clear();
+        strip.show();
+    }
+}
+
+void initialiseLEDs() {
+    strip.clear();
+    for (int i = 0; i<NUMPIXELS; i++) {
+        strip.setPixelColor(i, strip.Color(215,0,118));
+    }
+    strip.show();
+}
+
+void LEDBounce() {
+    strip.clear();
+    for (int i = 0; i<NUMPIXELS; i++) {
+        strip.setPixelColor(i, strip.Color(215,0,118));
+    }
+
+    brightness += add;
+    if (brightness >= 255) {
+        add = -1 * LED_BOUNCE_SPEED;
+    } else if (brightness <= 0) {
+        add = 1 * LED_BOUNCE_SPEED;
+    }
+    strip.setBrightness(brightness);
+    strip.show();
 }
 
 float servoLinear(long frame, long startFrame, long endFrame, long startPos, long endPos) {
