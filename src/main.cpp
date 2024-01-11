@@ -181,50 +181,53 @@ void runLever(long frame) {
         Serial.println("Stage 1");
         // slow linear to 10 deg
         // servo.write(SERVO_PIN, 10, 10, 0.0);
-        float target = servoLinear(frame, 0, STAGE_1_END, 0, 20);
+        float target = servoLinear(frame, 0, STAGE_1_END, 0, 180);
         servo.write(SERVO_PIN, target);
         Serial.println(target);
 
-    } else if (frame > STAGE_2_START && frame <= STAGE_2_END) {
-        // snap open then ease out to fully open
-        if (frame == STAGE_2_START + 1) {
-            // snap to 40 deg
-            Serial.println("Stage 2 frame 1");
-            servo.write(SERVO_PIN, 40);
-            servoPrevious = 40;
-        } else if (frame >= STAGE_2_START + (FRAMES_PER_STAGE/2)) {
-            // ease to fully open
-            Serial.println("Stage 2");
-            servoTarget = 180;
-            servoSmoothed = servoTarget * SERVO_SMOOTHING + servoPrevious * (1-SERVO_SMOOTHING);
-            servoPrevious = servoSmoothed;
-            // servo.write(SERVO_PIN, 180, 40.0, 0.0);
-            servo.write(SERVO_PIN, servoSmoothed);
-        }
+    // } else if (frame > STAGE_2_START && frame <= STAGE_2_END) {
+    //     // snap open then ease out to fully open
+    //     if (frame == STAGE_2_START + 1) {
+    //         // snap to 40 deg
+    //         Serial.println("Stage 2 frame 1");
+    //         servo.write(SERVO_PIN, 40);
+    //         servoPrevious = 40;
+    //     } else if (frame >= STAGE_2_START + (FRAMES_PER_STAGE/2)) {
+    //         // // ease to fully open
+    //         Serial.println("Stage 2");
+    //         servo.write(SERVO_PIN, 180);
+    //         // servoTarget = 180;
+    //         // servoSmoothed = servoTarget * SERVO_SMOOTHING + servoPrevious * (1-SERVO_SMOOTHING);
+    //         // servoPrevious = servoSmoothed;
+    //         // // servo.write(SERVO_PIN, 180, 40.0, 0.0);
+    //         // servo.write(SERVO_PIN, servoSmoothed);
+    //     }
 
-    } else if (frame > STAGE_7_START && frame <= STAGE_7_END) {
-        // ease back to 40 degrees
-        Serial.println("Stage 7");
-        // servo.write(SERVO_PIN, 40, 40.0, 0.66);
-        servo.write(SERVO_PIN, 40);
+    // } else if (frame > STAGE_7_START && frame <= STAGE_7_END) {
+    //     // ease back to 40 degrees
+    //     Serial.println("Stage 7");
+    //     // servo.write(SERVO_PIN, 40, 40.0, 0.66);
+    //     servo.write(SERVO_PIN, 40);
 
-    } else if (frame > STAGE_8_START && frame <= STAGE_8_END) {
-        if (frame == STAGE_8_START + 1) {
-            Serial.println("Stage 8 frame 1");
-            // snap back to 10 deg
-            servo.write(SERVO_PIN, 10);
+    // } else if (frame > STAGE_8_START && frame <= STAGE_8_END) {
+    //     if (frame == STAGE_8_START + 1) {
+    //         Serial.println("Stage 8 frame 1");
+    //         // snap back to 10 deg
+    //         servo.write(SERVO_PIN, 10);
 
-        } else if (frame >= STAGE_8_START + (FRAMES_PER_STAGE/2)) {
-            // linear to 0 deg
-            Serial.println("Stage 8");
-            // servo.write(SERVO_PIN, 0, 10, 0.0);
-            servo.write(SERVO_PIN, 0);
-        }
+    //     } else if (frame >= STAGE_8_START + (FRAMES_PER_STAGE/2)) {
+    //         // linear to 0 deg
+    //         Serial.println("Stage 8");
+    //         // servo.write(SERVO_PIN, 0, 10, 0.0);
+    //         servo.write(SERVO_PIN, 0);
+    //     }
 
     } else if (frame >= STAGE_9_START) {
-        servo.write(SERVO_PIN, 0);
-        servoSmoothed = 0;
-        servoPrevious = 0;
+        float target = servoLinear(frame, STAGE_9_START, STAGE_9_END, 180, 0);
+        // Serial.println(target);
+        servo.write(SERVO_PIN, target);
+        // servoSmoothed = 0;
+        // servoPrevious = 0;
     }
 }
 
@@ -274,5 +277,5 @@ void LEDBounce() {
 
 float servoLinear(long frame, long startFrame, long endFrame, long startPos, long endPos) {
     float dPos = (endPos - startPos)/(float(endFrame) - float(startFrame));
-    return (float(frame - startFrame) * dPos);
+    return startPos + (float(frame - startFrame) * dPos);
 }
