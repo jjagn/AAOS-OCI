@@ -8,7 +8,7 @@
     PINS
 */
 
-#define HALL        2           // pin for hall sensor (A0)
+#define HALL        3           // pin for hall sensor (A0)
 #define SERVO_PIN   D7          // servo pin
 #define LED_DATA    D10         // LED data out pin
 
@@ -17,7 +17,7 @@
     LEDs
 */
 
-#define NUMPIXELS           240          // 60 LED/meter 4 metre strip
+#define NUMPIXELS           14          // 60 LED/meter 4 metre strip
 #define DELAY               0           // 10ms delay
 #define LED_BOUNCE_SPEED    3           // controls speed of LEDBounce()
 Adafruit_NeoPixel strip(NUMPIXELS, LED_DATA, NEO_GRB + NEO_KHZ800);
@@ -29,7 +29,9 @@ int add = 1;
     SERVO
 */
 
-#define SERVO_SMOOTHING 0.0001  // smoothing value for servo, smaller = smoother
+#define SERVO_SMOOTHING 0.03  // smoothing value for servo, smaller = smoother
+#define SERVO_TARGET 0
+#define SERVO_START 90
 Servo servo = Servo();
 float servoTarget = 0;
 float servoPrevious = 0;
@@ -89,6 +91,8 @@ void runLeverLighting(long frame);
 float servoLinear(long frame, long startFrame, long endFrame, long startPos, long endPos);
 void initialiseLEDs();
 void LEDBounce();
+void LEDrotate();
+
 /*
         FILTERING
 */
@@ -107,7 +111,8 @@ void setup() {
 
     // initialise servo
     pinMode(SERVO_PIN, OUTPUT);
-    servo.write(SERVO_PIN, 0);
+    servo.write(SERVO_PIN, SERVO_START);
+    delay(1000);
 
     // initialse LEDs
     pinMode(LED_DATA, OUTPUT);
@@ -121,13 +126,13 @@ void setup() {
 
 void loop() {
     // animation timing and repeat management
-    if (frame <= MAX_FRAMES) {
+    // if (frame <= MAX_FRAMES) {
         if ((micros() - frameStartTime) >= FRAME_TIME_US) {
             frame++;
             frameStartTime = micros();
         }
         
-    } else {
+    if (frame >= MAX_FRAMES) {
         static int pacer = 0; 
         if (pacer++ >= HALL_PACER_MAX) {
             long reading = analogRead(HALL);
@@ -140,7 +145,7 @@ void loop() {
             averaged = sum / WINDOW_SIZE;
 
             // Serial.println(reading);
-            Serial.println(averaged);
+            // Serial.println(averaged);
             pacer = 0;
 
             if (averaged >= HALL_THRESHOLD) { // if hall reset switch is deemed close enough
@@ -163,7 +168,7 @@ void loop() {
 
     /* ANIMATION */
     if (frame > prevFrame) { // only update animation on new frames
-        Serial.println("new frame, updating animation");
+        // Serial.println("new frame, updating animation");
         runLever(frame);
         runNoseLighting(frame);
     // runLeverLighting(frame);
@@ -177,13 +182,19 @@ void loop() {
 }
 
 void runLever(long frame) {
-    if (frame <= STAGE_1_END) {
-        Serial.println("Stage 1");
+    if (frame <= STAGE_2_END) {
+        // Serial.println("Stage 1");
         // slow linear to 10 deg
         // servo.write(SERVO_PIN, 10, 10, 0.0);
-        float target = servoLinear(frame, 0, STAGE_1_END, 0, 180);
-        servo.write(SERVO_PIN, target);
-        Serial.println(target);
+        // float target = servoLinear(frame, 0, STAGE_1_END, SERVO_START, SERVO_TARGET);
+        servoTarget = SERVO_TARGET;
+        // servo.write(SERVO_PIN, SERVO_TARGET);
+        // servoTarget = SERVO_TARGET;
+        // servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
+        // Serial.println(servoSmoothed);
+        // servo.write(SERVO_PIN, servoSmoothed);
+        // servoPrevious = servoSmoothed;
+        // Serial.println(target);
 
     // } else if (frame > STAGE_2_START && frame <= STAGE_2_END) {
     //     // snap open then ease out to fully open
@@ -222,13 +233,23 @@ void runLever(long frame) {
     //         servo.write(SERVO_PIN, 0);
     //     }
 
-    } else if (frame >= STAGE_9_START) {
-        float target = servoLinear(frame, STAGE_9_START, STAGE_9_END, 180, 0);
+    } else if (frame >= STAGE_8_START) {
+        // float target = servoLinear(frame, STAGE_9_START, STAGE_9_END, SERVO_TARGET, SERVO_START);
         // Serial.println(target);
-        servo.write(SERVO_PIN, target);
-        // servoSmoothed = 0;
-        // servoPrevious = 0;
+        servoTarget = SERVO_START;
+        // servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
+        // servoPrevious = servoSmoothed;
+        // servo.write(SERVO_PIN, servoSmoothed);
+        // Serial.println(servoSmoothed);
+        // servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
+        // Serial.println(servoSmoothed);
+        // servo.write(SERVO_PIN, servoSmoothed);
+        // servoPrevious = servoSmoothed;
     }
+    servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
+    // Serial.println(servoSmoothed);
+    servo.write(SERVO_PIN, servoSmoothed);
+    servoPrevious = servoSmoothed;
 }
 
 void runNoseLighting(long frame) {
@@ -243,12 +264,13 @@ void runNoseLighting(long frame) {
         // strip.setBrightness(frame % 255);
         // strip.show();
     // }
-    if (frame < STAGE_10_END) {
-        LEDBounce();
-    } else {
-        strip.clear();
-        strip.show();
-    }
+    // if (frame < STAGE_10_END) {
+        // LEDBounce();
+        LEDrotate();
+    // } else {
+    //     strip.clear();
+    //     strip.show();
+    // }
 }
 
 void initialiseLEDs() {
@@ -272,6 +294,21 @@ void LEDBounce() {
         add = 1 * LED_BOUNCE_SPEED;
     }
     strip.setBrightness(brightness);
+    strip.show();
+}
+
+void LEDrotate() {
+    strip.clear();
+
+    for (int i = 0; i<NUMPIXELS; i++) {
+        int brightnessMod = (frame/15 - i) % 30;
+        int brightnessMod2 = (frame/9 - i) % 30;
+        int brightnessMod3 = (frame/30 - i) % 30;
+        int brightnessMod4 = (frame/5 - i) % 30;
+        int s = brightnessMod + brightnessMod2 + brightnessMod3 + brightnessMod4;
+
+        strip.setPixelColor(i, strip.Color((215.0-(s)),0,(118-(s))));
+    }
     strip.show();
 }
 
