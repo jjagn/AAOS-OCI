@@ -29,9 +29,9 @@ int add = 1;
     SERVO
 */
 
-#define SERVO_SMOOTHING 0.03  // smoothing value for servo, smaller = smoother
-#define SERVO_TARGET 0
-#define SERVO_START 90
+#define SERVO_SMOOTHING 0.02  // smoothing value for servo, smaller = smoother
+#define LEVER_OPEN 0
+#define LEVER_CLOSED 90
 Servo servo = Servo();
 float servoTarget = 0;
 float servoPrevious = 0;
@@ -46,7 +46,7 @@ float servoSmoothed = 0;
 // number of animation stages
 #define NUM_STAGES 10
 // total run time of animation (seconds)
-#define ANIMATION_RUNTIME 10
+#define ANIMATION_RUNTIME 30
 // total number of frames in animation
 #define MAX_FRAMES (FRAMES_PER_SECOND * ANIMATION_RUNTIME)
 // frames in each animation stage
@@ -58,27 +58,6 @@ float servoSmoothed = 0;
 // maxmimum pacer value for hall sensor analogRead
 #define HALL_PACER_MAX 5000
 
-// stage beginning and end frames
-#define STAGE_1_START   (FRAMES_PER_STAGE * 0)
-#define STAGE_1_END     (FRAMES_PER_STAGE * 1)
-#define STAGE_2_START   (FRAMES_PER_STAGE * 1)
-#define STAGE_2_END     (FRAMES_PER_STAGE * 2)
-#define STAGE_3_START   (FRAMES_PER_STAGE * 2)
-#define STAGE_3_END     (FRAMES_PER_STAGE * 3)
-#define STAGE_4_START   (FRAMES_PER_STAGE * 3)
-#define STAGE_4_END     (FRAMES_PER_STAGE * 4)
-#define STAGE_5_START   (FRAMES_PER_STAGE * 4)
-#define STAGE_5_END     (FRAMES_PER_STAGE * 5)
-#define STAGE_6_START   (FRAMES_PER_STAGE * 5)
-#define STAGE_6_END     (FRAMES_PER_STAGE * 6)
-#define STAGE_7_START   (FRAMES_PER_STAGE * 6)
-#define STAGE_7_END     (FRAMES_PER_STAGE * 7)
-#define STAGE_8_START   (FRAMES_PER_STAGE * 7)
-#define STAGE_8_END     (FRAMES_PER_STAGE * 8)
-#define STAGE_9_START   (FRAMES_PER_STAGE * 8)
-#define STAGE_9_END     (FRAMES_PER_STAGE * 9)
-#define STAGE_10_START   (FRAMES_PER_STAGE * 9)
-#define STAGE_10_END    (FRAMES_PER_STAGE * 10)
 
 long frame = 0;
 long prevFrame = 0;
@@ -92,6 +71,7 @@ float servoLinear(long frame, long startFrame, long endFrame, long startPos, lon
 void initialiseLEDs();
 void LEDBounce();
 void LEDrotate();
+void runLever2(bool cupPresent);
 
 /*
         FILTERING
@@ -111,7 +91,7 @@ void setup() {
 
     // initialise servo
     pinMode(SERVO_PIN, OUTPUT);
-    servo.write(SERVO_PIN, SERVO_START);
+    servo.write(SERVO_PIN, LEVER_CLOSED);
     delay(1000);
 
     // initialse LEDs
@@ -121,7 +101,7 @@ void setup() {
     // initialiseLEDs();
 
     // initialise serial
-    Serial.begin(460800);
+    // Serial.begin(9600);
 }
 
 void loop() {
@@ -131,6 +111,8 @@ void loop() {
             frame++;
             frameStartTime = micros();
         }
+
+        bool hall = false;
         
     if (frame >= MAX_FRAMES) {
         static int pacer = 0; 
@@ -154,6 +136,8 @@ void loop() {
                 frameStartTime = micros();
                 prevFrame = 0;
 
+                hall = true;
+
                 // reset filter to prevent instantly triggering the next time the animation finishes
                 averaged = 0;
                 sum = 0;
@@ -170,84 +154,61 @@ void loop() {
     if (frame > prevFrame) { // only update animation on new frames
         // Serial.println("new frame, updating animation");
         runLever(frame);
+        // runLever2(hall);
         runNoseLighting(frame);
     // runLeverLighting(frame);
     }
 
     // THIS MUST REMAIN AT THE END OF THE MAIN LOOP
     if (frame > prevFrame) {
-            Serial.println(frame);
-            prevFrame = frame;
+        prevFrame = frame;
+
+        // Serial.print("frame: ");
+        // Serial.println(frame);
+        // Serial.print("time: ");
+        // Serial.println(millis());
+
+        // int animationStage = frame / FRAMES_PER_STAGE;
+
+        // Serial.print("animation stage: ");
+        // Serial.println(animationStage)
     }
 }
 
 void runLever(long frame) {
-    if (frame <= STAGE_2_END) {
-        // Serial.println("Stage 1");
-        // slow linear to 10 deg
-        // servo.write(SERVO_PIN, 10, 10, 0.0);
-        // float target = servoLinear(frame, 0, STAGE_1_END, SERVO_START, SERVO_TARGET);
-        servoTarget = SERVO_TARGET;
-        // servo.write(SERVO_PIN, SERVO_TARGET);
-        // servoTarget = SERVO_TARGET;
-        // servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
-        // Serial.println(servoSmoothed);
-        // servo.write(SERVO_PIN, servoSmoothed);
-        // servoPrevious = servoSmoothed;
-        // Serial.println(target);
+    int animationStage = frame / FRAMES_PER_STAGE;
 
-    // } else if (frame > STAGE_2_START && frame <= STAGE_2_END) {
-    //     // snap open then ease out to fully open
-    //     if (frame == STAGE_2_START + 1) {
-    //         // snap to 40 deg
-    //         Serial.println("Stage 2 frame 1");
-    //         servo.write(SERVO_PIN, 40);
-    //         servoPrevious = 40;
-    //     } else if (frame >= STAGE_2_START + (FRAMES_PER_STAGE/2)) {
-    //         // // ease to fully open
-    //         Serial.println("Stage 2");
-    //         servo.write(SERVO_PIN, 180);
-    //         // servoTarget = 180;
-    //         // servoSmoothed = servoTarget * SERVO_SMOOTHING + servoPrevious * (1-SERVO_SMOOTHING);
-    //         // servoPrevious = servoSmoothed;
-    //         // // servo.write(SERVO_PIN, 180, 40.0, 0.0);
-    //         // servo.write(SERVO_PIN, servoSmoothed);
-    //     }
+    switch (animationStage)
+    {
+    case 0:
+        servoTarget = LEVER_CLOSED;
+        break;
 
-    // } else if (frame > STAGE_7_START && frame <= STAGE_7_END) {
-    //     // ease back to 40 degrees
-    //     Serial.println("Stage 7");
-    //     // servo.write(SERVO_PIN, 40, 40.0, 0.66);
-    //     servo.write(SERVO_PIN, 40);
+    case 1:
+        servoTarget = LEVER_OPEN;
+        break;
+    
+    case 9:
+        servoTarget = LEVER_CLOSED;
+        break;
 
-    // } else if (frame > STAGE_8_START && frame <= STAGE_8_END) {
-    //     if (frame == STAGE_8_START + 1) {
-    //         Serial.println("Stage 8 frame 1");
-    //         // snap back to 10 deg
-    //         servo.write(SERVO_PIN, 10);
-
-    //     } else if (frame >= STAGE_8_START + (FRAMES_PER_STAGE/2)) {
-    //         // linear to 0 deg
-    //         Serial.println("Stage 8");
-    //         // servo.write(SERVO_PIN, 0, 10, 0.0);
-    //         servo.write(SERVO_PIN, 0);
-    //     }
-
-    } else if (frame >= STAGE_8_START) {
-        // float target = servoLinear(frame, STAGE_9_START, STAGE_9_END, SERVO_TARGET, SERVO_START);
-        // Serial.println(target);
-        servoTarget = SERVO_START;
-        // servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
-        // servoPrevious = servoSmoothed;
-        // servo.write(SERVO_PIN, servoSmoothed);
-        // Serial.println(servoSmoothed);
-        // servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
-        // Serial.println(servoSmoothed);
-        // servo.write(SERVO_PIN, servoSmoothed);
-        // servoPrevious = servoSmoothed;
+    default:
+        break;
     }
+
     servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
-    // Serial.println(servoSmoothed);
+    servo.write(SERVO_PIN, servoSmoothed);
+    servoPrevious = servoSmoothed;
+}
+
+void runLever2(bool cupPresent) {
+    if (cupPresent) {
+        servoTarget = LEVER_CLOSED;
+    } else {
+        servoTarget = LEVER_OPEN;
+    }
+
+    servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
     servo.write(SERVO_PIN, servoSmoothed);
     servoPrevious = servoSmoothed;
 }
