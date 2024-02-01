@@ -37,6 +37,11 @@ float servoTarget = 0;
 float servoPrevious = 0;
 float servoSmoothed = 0;
 
+#define CLOSE_DELAY_MS  500
+#define OPEN_DELAY_MS   10000
+long tContact = 0;
+bool latch = false;
+
 /* 
         ANIMATION
 */
@@ -46,7 +51,7 @@ float servoSmoothed = 0;
 // number of animation stages
 #define NUM_STAGES 10
 // total run time of animation (seconds)
-#define ANIMATION_RUNTIME 30
+#define ANIMATION_RUNTIME 45
 // total number of frames in animation
 #define MAX_FRAMES (FRAMES_PER_SECOND * ANIMATION_RUNTIME)
 // frames in each animation stage
@@ -54,7 +59,7 @@ float servoSmoothed = 0;
 // frame time in microseconds
 #define FRAME_TIME_US ((1000 * 1000) / FRAMES_PER_SECOND)
 // ADC level for magnet detection
-#define HALL_THRESHOLD 2900
+#define HALL_THRESHOLD 2600
 // maxmimum pacer value for hall sensor analogRead
 #define HALL_PACER_MAX 5000
 
@@ -71,7 +76,7 @@ float servoLinear(long frame, long startFrame, long endFrame, long startPos, lon
 void initialiseLEDs();
 void LEDBounce();
 void LEDrotate();
-void runLever2(bool cupPresent);
+void runLever2();
 
 /*
         FILTERING
@@ -83,6 +88,7 @@ int idx = 0;
 long sum = 0;
 long readings[WINDOW_SIZE];
 long averaged = 0;
+
 
 
 void setup() {
@@ -111,10 +117,8 @@ void loop() {
             frame++;
             frameStartTime = micros();
         }
-
-        bool hall = false;
         
-    if (frame >= MAX_FRAMES) {
+    // if (frame >= MAX_FRAMES) {
         static int pacer = 0; 
         if (pacer++ >= HALL_PACER_MAX) {
             long reading = analogRead(HALL);
@@ -130,38 +134,30 @@ void loop() {
             // Serial.println(averaged);
             pacer = 0;
 
-            if (averaged >= HALL_THRESHOLD) { // if hall reset switch is deemed close enough
+            // if (averaged >= HALL_THRESHOLD) { // if hall reset switch is deemed close enough
                 // reset animation
-                frame = 1;
-                frameStartTime = micros();
-                prevFrame = 0;
-
-                hall = true;
+                // frame = 1;
+                // frameStartTime = micros();
+                // prevFrame = 0;
 
                 // reset filter to prevent instantly triggering the next time the animation finishes
-                averaged = 0;
-                sum = 0;
-                for (int i = 0; i<WINDOW_SIZE; i++)
-                {
-                    readings[i] = 0;
-                }
+                // averaged = 0;
+                // sum = 0;
+                // for (int i = 0; i<WINDOW_SIZE; i++)
+                // {
+                //     readings[i] = 0;
+                // }
                 
-            }
+            // }
         }
-    }
+    // }
 
     /* ANIMATION */
-    if (frame > prevFrame) { // only update animation on new frames
-        // Serial.println("new frame, updating animation");
-        runLever(frame);
-        // runLever2(hall);
-        runNoseLighting(frame);
-    // runLeverLighting(frame);
-    }
-
-    // THIS MUST REMAIN AT THE END OF THE MAIN LOOP
     if (frame > prevFrame) {
         prevFrame = frame;
+        runNoseLighting(frame);
+
+        runLever2();
 
         // Serial.print("frame: ");
         // Serial.println(frame);
@@ -172,6 +168,10 @@ void loop() {
 
         // Serial.print("animation stage: ");
         // Serial.println(animationStage)
+        // servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
+        // servo.write(SERVO_PIN, servoSmoothed);
+        // servoPrevious = servoSmoothed;
+        // Serial.println(servoSmoothed);
     }
 }
 
@@ -188,7 +188,7 @@ void runLever(long frame) {
         servoTarget = LEVER_OPEN;
         break;
     
-    case 9:
+    case 10:
         servoTarget = LEVER_CLOSED;
         break;
 
@@ -196,16 +196,26 @@ void runLever(long frame) {
         break;
     }
 
-    servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
-    servo.write(SERVO_PIN, servoSmoothed);
-    servoPrevious = servoSmoothed;
 }
 
-void runLever2(bool cupPresent) {
-    if (cupPresent) {
-        servoTarget = LEVER_CLOSED;
-    } else {
-        servoTarget = LEVER_OPEN;
+void runLever2() {
+    unsigned long timeNow = millis();
+    if (averaged >= HALL_THRESHOLD && !latch) {
+        tContact = timeNow;
+        latch = true;
+    }
+
+
+    if (latch) {
+        if ((timeNow >= tContact + CLOSE_DELAY_MS) && timeNow < tContact + OPEN_DELAY_MS) {
+            servoTarget = LEVER_CLOSED;
+        } else if (timeNow >= tContact + OPEN_DELAY_MS) {
+            servoTarget = LEVER_OPEN;
+            if (averaged < HALL_THRESHOLD) {
+                // i.e. cup has left
+                latch = false; // reset circuit
+            }
+        }
     }
 
     servoSmoothed = SERVO_SMOOTHING * servoTarget + (1.0-SERVO_SMOOTHING) * servoPrevious;
